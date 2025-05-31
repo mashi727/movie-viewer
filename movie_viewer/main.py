@@ -8,7 +8,11 @@ import threading
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QThread, QCoreApplication
 
-from app import VideoPlayerApp
+# パッケージとして実行される場合と直接実行される場合の両方に対応
+if __name__ == "__main__":
+    from app import VideoPlayerApp
+else:
+    from .app import VideoPlayerApp
 
 
 def main():

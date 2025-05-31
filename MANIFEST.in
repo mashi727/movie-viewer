@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+include requirements.txt
+recursive-include movie_viewer *.ui
+recursive-include movie_viewer *.png
+recursive-include movie_viewer *.jpg
+recursive-include movie_viewer *.ico

@@ -6,6 +6,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional
+import importlib.resources
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QSlider, QPushButton,
@@ -18,12 +19,12 @@ from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import QFile, Qt, QUrl, QSize
 
-from ui.custom_ui_loader import CustomUiLoader
-from core.video_controller import VideoController
-from core.chapter_manager import ChapterTableManager
-from core.models import TimePosition
-from utils.dark_mode import DarkModeDetector
-from utils.style_manager import StyleManager
+from .ui.custom_ui_loader import CustomUiLoader
+from .core.video_controller import VideoController
+from .core.chapter_manager import ChapterTableManager
+from .core.models import TimePosition
+from .utils.dark_mode import DarkModeDetector
+from .utils.style_manager import StyleManager
 
 
 class VideoPlayerApp(QMainWindow):
@@ -34,7 +35,20 @@ class VideoPlayerApp(QMainWindow):
         self.file_name: Optional[str] = None
         self.video_controller: Optional[VideoController] = None
         self.chapter_manager: Optional[ChapterTableManager] = None
-        self.resource_path = Path(__file__).parent
+        
+        # リソースパスの設定（パッケージ化された環境でも動作）
+        try:
+            # Python 3.9+
+            import importlib.resources as pkg_resources
+            self.resource_path = Path(pkg_resources.files('movie_viewer'))
+        except (ImportError, AttributeError):
+            # Python 3.8
+            try:
+                import pkg_resources
+                self.resource_path = Path(pkg_resources.resource_filename('movie_viewer', ''))
+            except ImportError:
+                # 開発環境（パッケージ化されていない場合）
+                self.resource_path = Path(__file__).parent
         
         self._setup_ui()
         self._setup_media_player()
@@ -45,7 +59,19 @@ class VideoPlayerApp(QMainWindow):
         """UI設定"""
         # UIファイルのロード
         loader = CustomUiLoader()
-        ui_file = QFile(str(self.resource_path / "video_player.ui"))
+        ui_file_path = self.resource_path / "ui" / "video_player.ui"
+        
+        # UIファイルの存在確認
+        if not ui_file_path.exists():
+            # 別の可能性のあるパスを試す
+            ui_file_path = self.resource_path / "video_player.ui"
+            if not ui_file_path.exists():
+                print(f"Error: UI file not found at {ui_file_path}")
+                print(f"Current directory: {Path.cwd()}")
+                print(f"Resource path: {self.resource_path}")
+                sys.exit(-1)
+        
+        ui_file = QFile(str(ui_file_path))
         if not ui_file.open(QFile.ReadOnly):
             print(f"Error: Cannot open UI file: {ui_file.errorString()}")
             sys.exit(-1)
@@ -107,8 +133,12 @@ class VideoPlayerApp(QMainWindow):
         
         # プレイボタンの設定
         self.play_pause_button.setStyleSheet("background: transparent; border: none;")
-        self.play_pause_button.setIcon(QIcon(str(self.resource_path / "icons/play.png")))
-        self.play_pause_button.setIconSize(QSize(65, 65))
+        icon_path = self.resource_path / "icons" / "play.png"
+        if not icon_path.exists():
+            icon_path = self.resource_path / "play.png"
+        if icon_path.exists():
+            self.play_pause_button.setIcon(QIcon(str(icon_path)))
+            self.play_pause_button.setIconSize(QSize(65, 65))
     
     def _setup_menu_bar(self):
         """メニューバーの設定"""
@@ -240,10 +270,17 @@ class VideoPlayerApp(QMainWindow):
         """再生と一時停止を切り替える"""
         if self.media_player.playbackState() == QMediaPlayer.PlayingState:
             self.media_player.pause()
-            self.play_pause_button.setIcon(QIcon(str(self.resource_path / "icons/play.png")))
+            icon_path = self.resource_path / "icons" / "play.png"
+            if not icon_path.exists():
+                icon_path = self.resource_path / "play.png"
         else:
             self.media_player.play()
-            self.play_pause_button.setIcon(QIcon(str(self.resource_path / "icons/pause.png")))
+            icon_path = self.resource_path / "icons" / "pause.png"
+            if not icon_path.exists():
+                icon_path = self.resource_path / "pause.png"
+        
+        if icon_path.exists():
+            self.play_pause_button.setIcon(QIcon(str(icon_path)))
     
     def set_position(self, position: int):
         """再生位置を設定"""
@@ -402,7 +439,11 @@ class VideoPlayerApp(QMainWindow):
         
         # 動画を再生
         self.media_player.play()
-        self.play_pause_button.setIcon(QIcon(str(self.resource_path / "icons/pause.png")))
+        icon_path = self.resource_path / "icons" / "pause.png"
+        if not icon_path.exists():
+            icon_path = self.resource_path / "pause.png"
+        if icon_path.exists():
+            self.play_pause_button.setIcon(QIcon(str(icon_path)))
         self.file_name = file_path
     
     def _center_dialog(self, dialog: QFileDialog):

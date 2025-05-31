@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "movie-viewer"
+version = "1.0.0"
+authors = [
+    {name = "mashi727", email = "your.email@example.com"},
+]
+description = "A video player application with chapter management"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Multimedia :: Video :: Display",
+]
+dependencies = [
+    "PySide6>=6.5.0",
+    "opencv-python>=4.8.0",
+]
+
+[project.optional-dependencies]
+macos = ["pyobjc-framework-Cocoa>=9.0.0"]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "flake8>=5.0",
+    "mypy>=0.990",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mashi727/movie_viewer"
+"Bug Tracker" = "https://github.com/mashi727/movie_viewer/issues"
+
+[project.scripts]
+movie-viewer = "movie_viewer.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["movie_viewer*"]
+
+[tool.setuptools.package-data]
+movie_viewer = ["ui/*.ui", "icons/*.png"]
