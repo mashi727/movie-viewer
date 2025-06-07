@@ -107,6 +107,28 @@ class VideoPlayerApp(QMainWindow):
         self.video_widget.setFocusPolicy(Qt.ClickFocus)
         self.video_widget.mousePressEvent = lambda event: self.setFocus()
 
+
+    def focusInEvent(self, event):
+        """フォーカスを受け取ったときの処理"""
+        super().focusInEvent(event)
+        print("Debug: VideoPlayerApp received focus.")
+    
+    # ↓ ここに追加 ↓
+    
+    def mousePressEvent(self, event):
+        """マウスクリックイベントの処理"""
+        # クリックされた位置のウィジェットを取得
+        clicked_widget = self.childAt(event.pos())
+        
+        # テーブルビュー以外がクリックされた場合、メインウィンドウにフォーカスを移動
+        if clicked_widget != self.table_view and not self.table_view.isAncestorOf(clicked_widget):
+            self.setFocus()
+            # デバッグ用（必要に応じて削除可）
+            print("Focus moved from table to main window")
+        
+        # 親クラスのイベント処理を呼び出す
+        super().mousePressEvent(event)
+
     
     def _get_ui_components(self):
         """UIコンポーネントの取得"""
