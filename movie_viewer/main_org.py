@@ -154,7 +154,7 @@ class VideoPlayerApp(QMainWindow):
 
         # QUiLoaderを使用してUIファイルをロード
         loader = CustomUiLoader()
-        ui_file = QFile(PATH+"/video_player.ui")
+        ui_file = QFile(PATH+"/ui/video_player.ui")
         if not ui_file.open(QFile.ReadOnly):
             print(f"Error: Cannot open UI file: {ui_file.errorString()}")
             sys.exit(-1)
