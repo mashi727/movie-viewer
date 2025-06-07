@@ -295,23 +295,82 @@ class VideoPlayerApp(QMainWindow):
         """再生時間の更新"""
         self.slider.setRange(0, duration)
         self.update_time_label()
-    
+
     def update_time_label(self):
-        """時間ラベルの更新"""
-        current_time = TimePosition.from_milliseconds(self.media_player.position())
-        total_time = TimePosition.from_milliseconds(self.media_player.duration())
+        """時間ラベルを更新する（修正版）"""
+        # エラーチェックを追加
+        if not hasattr(self, 'media_player') or not self.media_player:
+            return
+            
+        current_time = self.media_player.position() / 1000  # 現在の再生位置 (秒)
+        total_time = self.media_player.duration() / 1000   # 全体の再生時間 (秒)
+
+        # 現在の再生時間のフォーマット
+        current_hours, current_remainder = divmod(current_time, 3600)
+        current_minutes, current_seconds = divmod(current_remainder, 60)
+
+        # 全体の再生時間のフォーマット
+        total_hours, total_remainder = divmod(total_time, 3600)
+        total_minutes, total_seconds = divmod(total_remainder, 60)
+
+        # 小数点2桁の従来フォーマット（エラーが出ていた部分）
+        # self.custom_status_label.setText(
+        #     f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:05.2f} / "
+        #     f"{int(total_hours):01}:{int(total_minutes):02}:{total_seconds:05.2f}"
+        # )
         
+        # 小数点3桁の新フォーマット（copy_timeと統一）
         self.custom_status_label.setText(
-            f"{current_time.to_string()} / {total_time.to_string()}"
+            f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:06.3f} / "
+            f"{int(total_hours):01}:{int(total_minutes):02}:{total_seconds:06.3f}"
         )
-    
+
+
     def copy_time(self):
-        """現在の再生位置をクリップボードにコピー"""
-        current_time = TimePosition.from_milliseconds(self.media_player.position())
-        time_string = current_time.to_string()
-        
+        """現在の再生位置をクリップボードにコピーする"""
+        current_time = self.media_player.position() / 1000  # 現在の再生位置 (秒)
+
+        # 現在の再生時間のフォーマット
+        current_hours, current_remainder = divmod(current_time, 3600)
+        current_minutes, current_seconds = divmod(current_remainder, 60)
+
+        # フォーマットされた時間を作成
+        # 変更前: time_string = f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:05.2f}"
+        time_string = f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:06.3f}"  # ← この行を変更
+
+        # クリップボードにコピー
         QApplication.clipboard().setText(time_string)
         print(f"Copied to clipboard: {time_string}")
+
+    def update_time_label(self):
+        """時間ラベルを更新する（修正版）"""
+        # エラーチェックを追加
+        if not hasattr(self, 'media_player') or not self.media_player:
+            return
+            
+        current_time = self.media_player.position() / 1000  # 現在の再生位置 (秒)
+        total_time = self.media_player.duration() / 1000   # 全体の再生時間 (秒)
+
+        # 現在の再生時間のフォーマット
+        current_hours, current_remainder = divmod(current_time, 3600)
+        current_minutes, current_seconds = divmod(current_remainder, 60)
+
+        # 全体の再生時間のフォーマット
+        total_hours, total_remainder = divmod(total_time, 3600)
+        total_minutes, total_seconds = divmod(total_remainder, 60)
+
+        # 小数点2桁の従来フォーマット（エラーが出ていた部分）
+        # self.custom_status_label.setText(
+        #     f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:05.2f} / "
+        #     f"{int(total_hours):01}:{int(total_minutes):02}:{total_seconds:05.2f}"
+        # )
+        
+        # 小数点3桁の新フォーマット（copy_timeと統一）
+        self.custom_status_label.setText(
+            f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:06.3f} / "
+            f"{int(total_hours):01}:{int(total_minutes):02}:{total_seconds:06.3f}"
+        )
+        
     
     def add_chapter_row(self):
         """チャプター行を追加"""
