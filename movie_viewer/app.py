@@ -99,6 +99,11 @@ class VideoPlayerApp(QMainWindow):
         
         # チャプターマネージャーの初期化
         self.chapter_manager = ChapterTableManager(self.table_view)
+
+        # ビデオウィジェットをクリック可能にする（追加）
+        self.video_widget.setFocusPolicy(Qt.ClickFocus)
+        self.video_widget.mousePressEvent = lambda event: self.setFocus()
+
     
     def _get_ui_components(self):
         """UIコンポーネントの取得"""
@@ -254,7 +259,8 @@ class VideoPlayerApp(QMainWindow):
         # ショートカット
         self.shortcut = QShortcut(QKeySequence("Ctrl+P"), self)
         self.shortcut.activated.connect(self.print_window_geometry)
-    
+
+
     def _apply_styles(self):
         """スタイルの適用"""
         QApplication.setStyle("macOS")
@@ -265,7 +271,19 @@ class VideoPlayerApp(QMainWindow):
         dark_mode = DarkModeDetector.is_dark_mode()
         button_style = StyleManager.get_button_style(dark_mode)
         self.setStyleSheet(button_style)
-    
+
+
+    def keyPressEvent(self, event):
+        """キーボードイベントの処理"""
+        # スペースキーが押されたときに再生・一時停止を切り替え
+        if event.key() == Qt.Key_Space:
+            self.toggle_play_pause()
+            event.accept()
+        else:
+            # その他のキーはデフォルトの処理に委ねる
+            super().keyPressEvent(event)
+
+
     def toggle_play_pause(self):
         """再生と一時停止を切り替える"""
         if self.media_player.playbackState() == QMediaPlayer.PlayingState:
