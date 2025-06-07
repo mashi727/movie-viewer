@@ -12,6 +12,9 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QSlider, QPushButton,
     QLabel, QStatusBar, QTableView, QStyleFactory, QMessageBox
 )
+
+
+
 from PySide6.QtGui import (
     QKeySequence, QShortcut, QAction, QIcon, QFont
 )
@@ -272,16 +275,62 @@ class VideoPlayerApp(QMainWindow):
         button_style = StyleManager.get_button_style(dark_mode)
         self.setStyleSheet(button_style)
 
-
     def keyPressEvent(self, event):
         """キーボードイベントの処理"""
         # スペースキーが押されたときに再生・一時停止を切り替え
         if event.key() == Qt.Key_Space:
             self.toggle_play_pause()
             event.accept()
+        # Shift + > で1フレーム進む（Shift + . も同じ）
+        elif event.modifiers() == Qt.ShiftModifier and (event.key() == Qt.Key_Greater or event.key() == Qt.Key_Period):
+            self.video_controller.seek_by_frame(1)
+            event.accept()
+        # Shift + < で1フレーム戻る（Shift + , も同じ）
+        elif event.modifiers() == Qt.ShiftModifier and (event.key() == Qt.Key_Less or event.key() == Qt.Key_Comma):
+            self.video_controller.seek_by_frame(-1)
+            event.accept()
+        # Shift + / (?) でヘルプを表示
+        elif event.modifiers() == Qt.ShiftModifier and (event.key() == Qt.Key_Question or event.key() == Qt.Key_Slash):
+            self.show_shortcut_help()
+            event.accept()
         else:
             # その他のキーはデフォルトの処理に委ねる
             super().keyPressEvent(event)
+
+
+    def show_shortcut_help(self):
+        """ショートカットヘルプを表示"""
+        help_text = """
+        <h3>キーボードショートカット</h3>
+        
+        <b>再生制御:</b><br>
+        Space - 再生/一時停止<br>
+        <br>
+        
+        <b>フレーム移動:</b><br>
+        Shift + &gt; - 1フレーム進む<br>
+        Shift + &lt; - 1フレーム戻る<br>
+        <br>
+        
+        <b>時間移動:</b><br>
+        Ctrl + → - 1分進む<br>
+        Ctrl + ← - 1分戻る<br>
+        <br>
+        
+        <b>ファイル操作:</b><br>
+        Ctrl + O - 動画を開く<br>
+        Ctrl + L - チャプターファイルを読み込む<br>
+        Ctrl + S - チャプターファイルを保存<br>
+        <br>
+        
+        <b>その他:</b><br>
+        Ctrl + J - 選択した時間へジャンプ<br>
+        Ctrl + P - ウィンドウ情報を表示<br>
+        Shift + ? - このヘルプを表示<br>
+        """
+        
+        QMessageBox.information(self, "キーボードショートカット", help_text)
+
 
 
     def toggle_play_pause(self):
