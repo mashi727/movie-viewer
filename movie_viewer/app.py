@@ -188,7 +188,7 @@ class VideoPlayerApp(QMainWindow):
         
         # スキップメニューの設定
         self._setup_skip_menu(menu_bar, font2)
-    
+    ''' 
     def _setup_file_menu(self, menu_bar, font):
         """ファイルメニューの設定"""
         file_menu = menu_bar.addMenu("File")
@@ -217,6 +217,43 @@ class VideoPlayerApp(QMainWindow):
             ("1min BW", "Ctrl+Left", self._rewind_1min),
             ("1min FW", "Ctrl+Right", self._advance_1min),
             ("Jump", "Ctrl+J", self.jump_to_time),
+        ]
+        
+        for name, shortcut, callback in skip_actions:
+            action = QAction(name, self)
+            action.setShortcut(QKeySequence(shortcut))
+            action.triggered.connect(callback)
+            skip_menu.addAction(action)
+    '''
+
+    def _setup_file_menu(self, menu_bar, font):
+        """ファイルメニューの設定"""
+        file_menu = menu_bar.addMenu("File")
+        file_menu.setFont(font)
+        
+        actions = [
+            ("Open", "Ctrl+O", lambda: self.open_video()),
+            ("Load", "Ctrl+L", lambda: self.load_chapter_file()),
+            ("Save", "Ctrl+S", lambda: self.save_chapter_file()),
+            ("Quit", None, lambda: self.quit_application()),
+        ]
+        
+        for name, shortcut, callback in actions:
+            action = QAction(name, self)
+            if shortcut:
+                action.setShortcut(QKeySequence(shortcut))
+            action.triggered.connect(callback)
+            file_menu.addAction(action)
+
+    def _setup_skip_menu(self, menu_bar, font):
+        """スキップメニューの設定"""
+        skip_menu = menu_bar.addMenu("Skip")
+        skip_menu.setFont(font)
+        
+        skip_actions = [
+            ("1min BW", "Ctrl+Left", lambda: self._rewind_1min()),
+            ("1min FW", "Ctrl+Right", lambda: self._advance_1min()),
+            ("Jump", "Ctrl+J", lambda: self.jump_to_time()),
         ]
         
         for name, shortcut, callback in skip_actions:
@@ -297,10 +334,15 @@ class VideoPlayerApp(QMainWindow):
         button_style = StyleManager.get_button_style(dark_mode)
         self.setStyleSheet(button_style)
 
+
     def keyPressEvent(self, event):
         """キーボードイベントの処理"""
+        # Ctrl+V でペースト（テーブルビューにフォーカスがある場合）
+        if event.matches(QKeySequence.Paste) and self.table_view.hasFocus():
+            self.chapter_manager.paste_youtube_chapters()
+            event.accept()
         # スペースキーが押されたときに再生・一時停止を切り替え
-        if event.key() == Qt.Key_Space:
+        elif event.key() == Qt.Key_Space:
             self.toggle_play_pause()
             event.accept()
         # Shift + > で1フレーム進む（Shift + . も同じ）
@@ -321,7 +363,7 @@ class VideoPlayerApp(QMainWindow):
 
 
     def show_shortcut_help(self):
-        """ショートカットヘルプを表示"""
+        """ショートカットヘルプを表示（更新版）"""
         help_text = """
         <h3>キーボードショートカット</h3>
         
@@ -345,13 +387,15 @@ class VideoPlayerApp(QMainWindow):
         Ctrl + S - チャプターファイルを保存<br>
         <br>
         
-        <b>その他:</b><br>
+        <b>チャプター操作:</b><br>
+        Ctrl + V - YouTubeチャプターをペースト（テーブルにフォーカス時）<br>
         Ctrl + J - 選択した時間へジャンプ<br>
+        <br>
+        
+        <b>その他:</b><br>
         Ctrl + P - ウィンドウ情報を表示<br>
         Shift + ? - このヘルプを表示<br>
         """
-        
-        QMessageBox.information(self, "キーボードショートカット", help_text)
 
 
 
