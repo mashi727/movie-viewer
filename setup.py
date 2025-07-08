@@ -35,6 +35,9 @@ setup(
     install_requires=[
         "PySide6>=6.5.0",
         "opencv-python>=4.8.0",
+        "pyqtgraph>=0.13.0",
+        "numpy>=1.21.0",
+        "scipy>=1.7.0",
     ],
     extras_require={
         "macos": ["pyobjc-framework-Cocoa>=9.0.0"],
