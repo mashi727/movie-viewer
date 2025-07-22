@@ -183,6 +183,7 @@ class ChapterTableManager:
         except Exception as e:
             print(f"Error pasting chapters: {e}")
     
+
     def _parse_youtube_chapters(self, text: str) -> List[Tuple[str, str]]:
         """
         YouTubeのチャプター形式のテキストを解析
@@ -194,10 +195,45 @@ class ChapterTableManager:
             [(時間, タイトル), ...] のリスト
         """
         chapters = []
+        
+        # まず改行で分割を試みる
         lines = text.strip().split('\n')
         
-        # 時間形式のパターン (HH:MM:SS または MM:SS)
-        time_pattern = re.compile(r'(\d{1,2}:\d{2}(?::\d{2})?)')
+        # 改行がない場合（1行のみ）、時間パターンで分割する
+        if len(lines) == 1 and lines[0]:
+            # 時間形式のパターン (HH:MM:SS.mmm または MM:SS.mmm または HH:MM:SS または MM:SS)
+            time_pattern = re.compile(r'(\d{1,2}:\d{2}:\d{2}\.\d{3}|\d{1,2}:\d{2}\.\d{3}|\d{1,2}:\d{2}:\d{2}|\d{1,2}:\d{2})')
+            
+            # 時間パターンを全て見つける
+            matches = list(time_pattern.finditer(lines[0]))
+            
+            if len(matches) > 1:
+                # 複数の時間が見つかった場合、時間をセパレータとして使用
+                for i, match in enumerate(matches):
+                    time_str = match.group(1)
+                    
+                    # タイトルを抽出
+                    if i + 1 < len(matches):
+                        # 次の時間の開始位置まで
+                        title = lines[0][match.end():matches[i+1].start()].strip()
+                    else:
+                        # 最後の時間の場合、文字列の最後まで
+                        title = lines[0][match.end():].strip()
+                    
+                    # タイトルから先頭の区切り文字を削除
+                    title = re.sub(r'^[-\s]+', '', title)
+                    
+                    # 時間を正規化
+                    normalized_time = self._normalize_time(time_str)
+                    
+                    if title:  # タイトルがある場合のみ追加
+                        chapters.append((normalized_time, title))
+                
+                return chapters
+        
+        # 通常の改行区切りの処理
+        # 時間形式のパターン (HH:MM:SS.mmm または MM:SS.mmm または HH:MM:SS または MM:SS)
+        time_pattern = re.compile(r'(\d{1,2}:\d{2}:\d{2}\.\d{3}|\d{1,2}:\d{2}\.\d{3}|\d{1,2}:\d{2}:\d{2}|\d{1,2}:\d{2})')
         
         for line in lines:
             line = line.strip()
@@ -233,30 +269,46 @@ class ChapterTableManager:
                     # タイトルの決定
                     title = after if after else before
                     
-                    # 時間を HH:MM:SS.mmm 形式に正規化
+                    # タイトルから先頭の区切り文字を削除
+                    title = re.sub(r'^[-\s]+', '', title)
+                    
+                    # 時間を正規化
                     normalized_time = self._normalize_time(time_str)
                     
                     if title:  # タイトルがある場合のみ追加
                         chapters.append((normalized_time, title))
         
         return chapters
-    
+
     def _normalize_time(self, time_str: str) -> str:
         """
         時間文字列を正規化
         MM:SS -> 0:MM:SS.000
         HH:MM:SS -> HH:MM:SS.000
+        MM:SS.mmm -> 0:MM:SS.mmm
+        HH:MM:SS.mmm -> HH:MM:SS.mmm
         """
-        parts = time_str.split(':')
-        if len(parts) == 2:  # MM:SS
+        # ミリ秒部分を分離
+        parts = time_str.split('.')
+        time_part = parts[0]
+        ms_part = parts[1] if len(parts) > 1 else '000'
+        
+        # 時:分:秒を分離
+        time_components = time_part.split(':')
+        
+        if len(time_components) == 2:  # MM:SS
             hours = 0
-            minutes = int(parts[0])
-            seconds = int(parts[1])
-        elif len(parts) == 3:  # HH:MM:SS
-            hours = int(parts[0])
-            minutes = int(parts[1])
-            seconds = int(parts[2])
+            minutes = int(time_components[0])
+            seconds = int(time_components[1])
+        elif len(time_components) == 3:  # HH:MM:SS
+            hours = int(time_components[0])
+            minutes = int(time_components[1])
+            seconds = int(time_components[2])
         else:
             return time_str
         
-        return f"{hours}:{minutes:02d}:{seconds:02d}.000"
+        # ミリ秒を3桁に正規化
+        ms_part = ms_part.ljust(3, '0')[:3]
+        
+        return f"{hours}:{minutes:02d}:{seconds:02d}.{ms_part}"
+
