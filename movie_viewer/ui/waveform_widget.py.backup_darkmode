@@ -32,94 +32,57 @@ class WaveformWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # PyQtGraphの設定（ライトモード用）
+        # PyQtGraphの設定
         pg.setConfigOptions(antialias=True)
-        pg.setConfigOption('background', 'w')  # 白背景
-        pg.setConfigOption('foreground', 'k')  # 黒文字
         
         # グラフィックスレイアウトウィジェット
         self.graphics_widget = pg.GraphicsLayoutWidget()
-        self.graphics_widget.setBackground('w')  # 白背景
         layout.addWidget(self.graphics_widget)
         
         # 波形プロット
         self.waveform_plot = self.graphics_widget.addPlot(row=0, col=0)
-        self.waveform_plot.setLabel('left', 'Amplitude', color='#333333')
-        self.waveform_plot.setLabel('bottom', 'Time', units='s', color='#333333')
-        self.waveform_plot.showGrid(x=True, y=True, alpha=0.2)
+        self.waveform_plot.setLabel('left', 'Amplitude')
+        self.waveform_plot.setLabel('bottom', 'Time', units='s')
+        self.waveform_plot.showGrid(x=True, y=True, alpha=0.3)
         self.waveform_plot.setMouseEnabled(x=True, y=False)
         
-        # 軸のスタイル設定（互換性のある方法）
-        for axis in ['left', 'bottom']:
-            self.waveform_plot.getAxis(axis).setPen(pg.mkPen('#333333'))
+        # 波形データ用のプロットアイテム
+        self.waveform_curve = self.waveform_plot.plot(pen='w')
         
-        # 波形データ用のプロットアイテム（濃い青色）
-        self.waveform_curve = self.waveform_plot.plot(pen=pg.mkPen('#0066CC', width=1.5))
-        
-        # リージョンアイテム（表示範囲選択用）- シンプルな初期化
+        # リージョンアイテム（表示範囲選択用）
         self.region = pg.LinearRegionItem()
         self.region.setZValue(10)
-        # ブラシとペンを個別に設定
-        self.region.setBrush(pg.mkBrush(100, 150, 200, 50))  # 薄い青の半透明
-        # ラインの設定（互換性のある方法）
-        for line in self.region.lines:
-            line.setPen(pg.mkPen('#4488CC', width=2))
         self.waveform_plot.addItem(self.region)
         
-        # 再生位置ライン（赤色）
+        # 再生位置ライン
         self.position_line = pg.InfiniteLine(
             pos=0, 
             angle=90, 
-            pen=pg.mkPen('#CC0000', width=2)
+            pen=pg.mkPen('r', width=2)
         )
         self.waveform_plot.addItem(self.position_line)
         
         # スペクトログラムプロット
         self.spectrogram_plot = self.graphics_widget.addPlot(row=1, col=0)
-        self.spectrogram_plot.setLabel('left', 'Frequency', units='Hz', color='#333333')
-        self.spectrogram_plot.setLabel('bottom', 'Time', units='s', color='#333333')
-        self.spectrogram_plot.showGrid(x=True, y=True, alpha=0.2)
-        
-        # 軸のスタイル設定
-        for axis in ['left', 'bottom']:
-            self.spectrogram_plot.getAxis(axis).setPen(pg.mkPen('#333333'))
+        self.spectrogram_plot.setLabel('left', 'Frequency', units='Hz')
+        self.spectrogram_plot.setLabel('bottom', 'Time', units='s')
+        self.spectrogram_plot.showGrid(x=True, y=True, alpha=0.3)
         
         # スペクトログラム画像アイテム
         self.spectrogram_img = pg.ImageItem()
         self.spectrogram_plot.addItem(self.spectrogram_img)
         
-        # カラーマップ設定（互換性のある方法）
-        try:
-            # カスタムカラーマップ（白→青→紫→赤）
-            colors = [
-                (0.0, (255, 255, 255)),    # 白（低エネルギー）
-                (0.25, (200, 220, 255)),   # 薄い青
-                (0.5, (100, 150, 255)),    # 青
-                (0.75, (150, 100, 200)),   # 紫
-                (1.0, (200, 50, 50))       # 赤（高エネルギー）
-            ]
-            self.colormap = pg.ColorMap(pos=[c[0] for c in colors], 
-                                       color=[c[1] for c in colors])
-            self.spectrogram_img.setColorMap(self.colormap)
-        except Exception as e:
-            print(f"Custom colormap failed, using default: {e}")
-            # デフォルトのカラーマップを使用
-            self.colormap = pg.colormap.get('plasma', source='matplotlib')
-            self.spectrogram_img.setColorMap(self.colormap)
+        # カラーマップ設定
+        self.colormap = pg.colormap.get('viridis')
+        self.spectrogram_img.setColorMap(self.colormap)
         
-        # カラーバー（エラーを回避するための条件分岐）
-        try:
-            self.colorbar = pg.ColorBarItem(
-                values=(-80, 0),
-                colorMap=self.colormap,
-                label='Power (dB)',
-                width=20
-            )
-            # 互換性のある方法でカラーバーを追加
-            self.colorbar.setImageItem(self.spectrogram_img)
-        except Exception as e:
-            print(f"ColorBarItem creation failed: {e}")
-            self.colorbar = None
+        # カラーバー
+        self.colorbar = pg.ColorBarItem(
+            values=(-80, 0),
+            colorMap=self.colormap,
+            label='Power (dB)'
+        )
+        self.colorbar.setImageItem(self.spectrogram_img, insert_in=self.spectrogram_plot)
         
         # 波形とスペクトログラムのX軸を同期
         self.spectrogram_plot.setXLink(self.waveform_plot)
@@ -155,50 +118,21 @@ class WaveformWidget(QWidget):
             
             # プロットの範囲を設定
             self.waveform_plot.setXRange(0, self.duration, padding=0)
-            self.waveform_plot.setYRange(-0.05, 1.05, padding=0)
-            
-            # ViewBoxの背景色を設定（互換性のある方法）
-            try:
-                self.waveform_plot.getViewBox().setBackgroundColor('w')
-            except:
-                # 背景色の設定に失敗した場合は無視
-                pass
+            self.waveform_plot.setYRange(-0.1, 1.1, padding=0)
     
     def _set_initial_region(self):
         """初期リージョン（冒頭10%）を設定"""
         if self.duration > 0:
-            end_time = min(self.duration * 0.1, self.duration)
-            self.region.setRegion([0, end_time])
-            
-            # リージョンの範囲制限（互換性のある方法）
-            try:
-                self.region.setBounds([0, self.duration])
-            except AttributeError:
-                # setBoundsがない場合は、sigRegionChangedで制限する
-                pass
+            end_time = self.duration * 0.1
+            self.region.setRegion((0, end_time))
     
     def _on_region_changed(self):
         """リージョンが変更されたときの処理"""
         region_min, region_max = self.region.getRegion()
         
         # 範囲制限
-        if self.duration > 0:
-            region_min = max(0, min(region_min, self.duration))
-            region_max = max(0, min(region_max, self.duration))
-            
-            # 範囲が逆転している場合の修正
-            if region_min > region_max:
-                region_min, region_max = region_max, region_min
-            
-            # 最小幅を確保
-            min_width = 0.1  # 0.1秒
-            if region_max - region_min < min_width:
-                region_max = region_min + min_width
-            
-            # 範囲を再設定（無限ループを防ぐ）
-            current_region = self.region.getRegion()
-            if abs(current_region[0] - region_min) > 0.001 or abs(current_region[1] - region_max) > 0.001:
-                self.region.setRegion([region_min, region_max])
+        region_min = max(0, region_min)
+        region_max = min(self.duration, region_max)
         
         # スペクトログラムを更新
         self._update_spectrogram(region_min, region_max)
@@ -208,7 +142,7 @@ class WaveformWidget(QWidget):
     
     def _update_spectrogram(self, start_time: float, end_time: float):
         """スペクトログラムを更新"""
-        if not self.audio_analyzer or start_time >= end_time:
+        if not self.audio_analyzer:
             return
         
         # スペクトログラムを計算
@@ -235,12 +169,6 @@ class WaveformWidget(QWidget):
             # Y軸の範囲を設定（0-8000Hz程度）
             max_freq = min(frequencies[-1], 8000)
             self.spectrogram_plot.setYRange(0, max_freq, padding=0)
-            
-            # ViewBoxの背景色を設定（互換性のある方法）
-            try:
-                self.spectrogram_plot.getViewBox().setBackgroundColor('w')
-            except:
-                pass
     
     def _on_waveform_clicked(self, event):
         """波形がクリックされたときの処理"""
@@ -273,4 +201,4 @@ class WaveformWidget(QWidget):
     
     def set_region(self, start: float, end: float):
         """リージョンを設定"""
-        self.region.setRegion([start, end])
+        self.region.setRegion((start, end))

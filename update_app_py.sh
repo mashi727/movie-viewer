@@ -1,3 +1,25 @@
+#!/bin/bash
+
+# app.pyを波形表示機能対応版に更新するスクリプト
+# 使用方法: bash update_app_py.sh
+
+echo "=== app.py を波形表示機能対応版に更新 ==="
+echo ""
+
+# 作業ディレクトリの確認
+if [ ! -f "movie_viewer/app.py" ]; then
+    echo "エラー: movie_viewer/app.py が見つかりません。"
+    echo "プロジェクトのルートディレクトリで実行してください。"
+    exit 1
+fi
+
+# バックアップ
+echo "既存の app.py をバックアップ中..."
+cp movie_viewer/app.py movie_viewer/app.py.backup_$(date +%Y%m%d_%H%M%S)
+
+# app.pyを更新
+echo "app.py を更新中..."
+cat > movie_viewer/app.py << 'EOF'
 """
 メインアプリケーションクラス
 """
@@ -25,7 +47,6 @@ from .ui.waveform_widget import WaveformWidget
 from .core.video_controller import VideoController
 from .core.chapter_manager import ChapterTableManager
 from .core.audio_analyzer import AudioAnalyzer
-from .core.audio_device_manager import AudioDeviceManager
 from .core.models import TimePosition
 from .utils.dark_mode import DarkModeDetector
 from .utils.style_manager import StyleManager
@@ -40,7 +61,6 @@ class VideoPlayerApp(QMainWindow):
         self.video_controller: Optional[VideoController] = None
         self.chapter_manager: Optional[ChapterTableManager] = None
         self.audio_analyzer: Optional[AudioAnalyzer] = None
-        self.audio_device_manager: Optional[AudioDeviceManager] = None
         self.waveform_widget: Optional[WaveformWidget] = None
         
         # リソースパスの設定（パッケージ化された環境でも動作）
@@ -205,26 +225,16 @@ class VideoPlayerApp(QMainWindow):
         menu_bar.setStyleSheet(StyleManager.get_menu_style())
         
         # フォント設定
-        # フォント設定（システムで利用可能なフォントを使用）
-        import platform
-        if platform.system() == "Darwin":  # macOS
-            font = QFont("Helvetica", 16)
-            font2 = QFont("Helvetica", 14)
-        elif platform.system() == "Windows":
-            font = QFont("Arial", 16)
-            font2 = QFont("Arial", 14)
-        else:  # Linux等
-            font = QFont("Sans", 16)
-            font2 = QFont("Sans", 14)
+        font = QFont("Noto Sans CJK JP", 16)
+        menu_bar.setFont(font)
+        
+        font2 = QFont("Noto Sans CJK JP", 14)
         
         # ファイルメニューの設定
         self._setup_file_menu(menu_bar, font2)
         
         # スキップメニューの設定
         self._setup_skip_menu(menu_bar, font2)
-        
-        # 音声デバイスメニューの設定
-        self._setup_audio_menu(menu_bar, font2)
 
     def _setup_file_menu(self, menu_bar, font):
         """ファイルメニューの設定"""
@@ -262,25 +272,6 @@ class VideoPlayerApp(QMainWindow):
             action.triggered.connect(callback)
             skip_menu.addAction(action)
     
-    def _setup_audio_menu(self, menu_bar, font):
-        """音声デバイスメニューの設定"""
-        self.audio_menu = menu_bar.addMenu("Audio")
-        self.audio_menu.setFont(font)
-        
-        # デバイスリストの更新アクション
-        refresh_action = QAction("Refresh Devices", self)
-        refresh_action.triggered.connect(self._refresh_audio_devices)
-        self.audio_menu.addAction(refresh_action)
-        
-        # セパレータ
-        self.audio_menu.addSeparator()
-        
-        # デバイスリストを初期化（最初は空）
-        self.audio_device_actions = []
-        
-        # 初回のデバイスリストを取得
-        self._refresh_audio_devices()
-    
     def _setup_status_bar(self):
         """ステータスバーの設定"""
         self.custom_status_label = QLabel()
@@ -296,12 +287,6 @@ class VideoPlayerApp(QMainWindow):
         self.media_player.setAudioOutput(self.audio_output)
         
         self.video_controller = VideoController(self.media_player)
-        
-        # 音声デバイス管理の初期化
-        self.audio_device_manager = AudioDeviceManager(self)
-        self.audio_device_manager.set_audio_output(self.audio_output)
-        self.audio_device_manager.device_changed.connect(self._on_audio_device_changed)
-        self.audio_device_manager.devices_updated.connect(self._on_devices_updated)
     
     def _setup_connections(self):
         """シグナル・スロットの接続"""
@@ -677,62 +662,6 @@ class VideoPlayerApp(QMainWindow):
         """1分早送り"""
         self.video_controller.seek_by_milliseconds(60000)
     
-    def _refresh_audio_devices(self):
-        """音声デバイスリストを更新"""
-        if not self.audio_device_manager:
-            return
-        
-        # 既存のデバイスアクションをクリア
-        for action in self.audio_device_actions:
-            self.audio_menu.removeAction(action)
-        self.audio_device_actions.clear()
-        
-        # デバイスリストを取得
-        devices = self.audio_device_manager.get_devices_info()
-        current_device = self.audio_device_manager.get_current_device()
-        
-        # デバイスごとにメニューアイテムを作成
-        for i, device in enumerate(devices):
-            device_name = device['name']
-            if device['is_default']:
-                device_name += " (Default)"
-            
-            action = QAction(device_name, self)
-            action.setCheckable(True)
-            
-            # 現在選択されているデバイスにチェック
-            if current_device and device['id'] == current_device['id']:
-                action.setChecked(True)
-            
-            # デバイス切り替えのコールバック
-            action.triggered.connect(lambda checked, idx=i: self._switch_audio_device(idx))
-            
-            self.audio_menu.addAction(action)
-            self.audio_device_actions.append(action)
-        
-        if not devices:
-            no_device_action = QAction("No audio devices found", self)
-            no_device_action.setEnabled(False)
-            self.audio_menu.addAction(no_device_action)
-            self.audio_device_actions.append(no_device_action)
-    
-    def _switch_audio_device(self, device_index: int):
-        """音声デバイスを切り替え"""
-        if self.audio_device_manager:
-            success = self.audio_device_manager.switch_device_by_index(device_index)
-            if success:
-                # メニューのチェック状態を更新
-                for i, action in enumerate(self.audio_device_actions):
-                    action.setChecked(i == device_index)
-    
-    def _on_audio_device_changed(self, device_name: str):
-        """音声デバイスが変更されたときの処理"""
-        self.status_bar.showMessage(f"Audio output: {device_name}", 3000)
-    
-    def _on_devices_updated(self, devices: list):
-        """デバイスリストが更新されたときの処理"""
-        self._refresh_audio_devices()
-    
     def showEvent(self, event):
         """ウィンドウが表示されるタイミングでの処理"""
         super().showEvent(event)
@@ -742,3 +671,27 @@ class VideoPlayerApp(QMainWindow):
         """フォーカスを受け取ったときの処理"""
         super().focusInEvent(event)
         print("Debug: VideoPlayerApp received focus.")
+EOF
+
+echo ""
+echo "=== app.py の更新完了 ==="
+echo ""
+echo "バックアップファイルが作成されました:"
+echo "  movie_viewer/app.py.backup_*"
+echo ""
+echo "問題が発生した場合は、バックアップから復元できます。"
+EOF
+
+chmod +x update_app_py.sh
+
+echo ""
+echo "2つのスクリプトを作成しました:"
+echo "  1. update_waveform_feature.sh - 基本的な更新"
+echo "  2. update_app_py.sh - app.pyの完全更新"
+echo ""
+echo "実行手順:"
+echo "  1. bash update_waveform_feature.sh"
+echo "  2. bash update_app_py.sh"
+echo "  3. pip install -e . --upgrade"
+echo ""
+echo "実行前に必ずffmpegがインストールされていることを確認してください。"

@@ -1,3 +1,30 @@
+#!/bin/bash
+
+# すべての互換性問題を修正するスクリプト
+# 使用方法: bash fix_all_compatibility_issues.sh
+
+echo "=== Movie Viewer 互換性問題の完全修正 ==="
+echo ""
+
+# 作業ディレクトリの確認
+if [ ! -d "movie_viewer" ]; then
+    echo "エラー: movie_viewerディレクトリが見つかりません。"
+    echo "プロジェクトのルートディレクトリで実行してください。"
+    exit 1
+fi
+
+# バックアップディレクトリの作成
+BACKUP_DIR="backup_fixes_$(date +%Y%m%d_%H%M%S)"
+echo "バックアップを作成中: $BACKUP_DIR"
+mkdir -p "$BACKUP_DIR"
+
+# ファイルのバックアップ
+cp movie_viewer/ui/waveform_widget.py "$BACKUP_DIR/" 2>/dev/null
+cp movie_viewer/app.py "$BACKUP_DIR/" 2>/dev/null
+
+# 1. waveform_widget.pyの修正
+echo "1. waveform_widget.py を修正中..."
+cat > movie_viewer/ui/waveform_widget.py << 'EOF'
 """
 波形・スペクトログラム表示ウィジェット
 """
@@ -274,3 +301,59 @@ class WaveformWidget(QWidget):
     def set_region(self, start: float, end: float):
         """リージョンを設定"""
         self.region.setRegion([start, end])
+EOF
+
+# 2. app.pyのフォント設定を修正
+echo "2. app.py のフォント設定を修正中..."
+# Pythonスクリプトで修正
+python3 << 'PYTHON_SCRIPT'
+import re
+
+# app.pyを読み込む
+with open('movie_viewer/app.py', 'r') as f:
+    content = f.read()
+
+# _setup_menu_bar メソッドを見つけて修正
+pattern = r'(def _setup_menu_bar\(self\):.*?)(font = QFont\("Noto Sans CJK JP", 16\).*?font2 = QFont\("Noto Sans CJK JP", 14\))'
+replacement = r'''\1# フォント設定（システムで利用可能なフォントを使用）
+        import platform
+        if platform.system() == "Darwin":  # macOS
+            font = QFont("Helvetica", 16)
+            font2 = QFont("Helvetica", 14)
+        elif platform.system() == "Windows":
+            font = QFont("Arial", 16)
+            font2 = QFont("Arial", 14)
+        else:  # Linux等
+            font = QFont("Sans", 16)
+            font2 = QFont("Sans", 14)'''
+
+# 正規表現で置換
+updated_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+
+# ファイルに書き戻す
+with open('movie_viewer/app.py', 'w') as f:
+    f.write(updated_content)
+
+print("app.py のフォント設定を修正しました")
+PYTHON_SCRIPT
+
+echo ""
+echo "=== 修正完了 ==="
+echo ""
+echo "修正内容:"
+echo "1. waveform_widget.py:"
+echo "   - setBackgroundBrush → getViewBox().setBackgroundColor に変更"
+echo "   - LinearRegionItemの初期化方法を修正"
+echo "   - リージョンの動作を改善（範囲制限、最小幅確保）"
+echo "   - エラーハンドリングを追加"
+echo ""
+echo "2. app.py:"
+echo "   - 'Noto Sans CJK JP' → システムフォント（Helvetica/Arial/Sans）に変更"
+echo ""
+echo "バックアップ: $BACKUP_DIR"
+echo ""
+echo "アプリケーションを再起動してください:"
+echo "  movie-viewer"
+echo ""
+echo "問題が続く場合は、PyQtGraphのバージョンを確認してください:"
+echo "  python -c \"import pyqtgraph; print(pyqtgraph.__version__)\""

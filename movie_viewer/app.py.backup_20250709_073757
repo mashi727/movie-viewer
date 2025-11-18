@@ -10,9 +10,11 @@ import importlib.resources
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QFileDialog, QSlider, QPushButton,
-    QLabel, QStatusBar, QTableView, QStyleFactory, QMessageBox,
-    QSplitter, QWidget, QVBoxLayout
+    QLabel, QStatusBar, QTableView, QStyleFactory, QMessageBox
 )
+
+
+
 from PySide6.QtGui import (
     QKeySequence, QShortcut, QAction, QIcon, QFont
 )
@@ -21,11 +23,8 @@ from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import QFile, Qt, QUrl, QSize
 
 from .ui.custom_ui_loader import CustomUiLoader
-from .ui.waveform_widget import WaveformWidget
 from .core.video_controller import VideoController
 from .core.chapter_manager import ChapterTableManager
-from .core.audio_analyzer import AudioAnalyzer
-from .core.audio_device_manager import AudioDeviceManager
 from .core.models import TimePosition
 from .utils.dark_mode import DarkModeDetector
 from .utils.style_manager import StyleManager
@@ -39,9 +38,6 @@ class VideoPlayerApp(QMainWindow):
         self.file_name: Optional[str] = None
         self.video_controller: Optional[VideoController] = None
         self.chapter_manager: Optional[ChapterTableManager] = None
-        self.audio_analyzer: Optional[AudioAnalyzer] = None
-        self.audio_device_manager: Optional[AudioDeviceManager] = None
-        self.waveform_widget: Optional[WaveformWidget] = None
         
         # リソースパスの設定（パッケージ化された環境でも動作）
         try:
@@ -59,7 +55,6 @@ class VideoPlayerApp(QMainWindow):
         
         self._setup_ui()
         self._setup_media_player()
-        self._setup_audio_analyzer()
         self._setup_connections()
         self._apply_styles()
     
@@ -91,31 +86,10 @@ class VideoPlayerApp(QMainWindow):
             print("Error: Failed to load UI file.")
             sys.exit(-1)
         
-        # メインウィジェットのセットアップ
-        main_widget = QWidget()
-        main_layout = QVBoxLayout(main_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        
-        # 既存のUIをスプリッターの上部に配置
-        self.main_splitter = QSplitter(Qt.Vertical)
-        self.main_splitter.addWidget(self.loaded_ui)
-        
-        # 波形ウィジェットを作成して下部に配置
-        self.waveform_widget = WaveformWidget()
-        self.waveform_widget.setMinimumHeight(200)
-        self.waveform_widget.setMaximumHeight(400)
-        self.main_splitter.addWidget(self.waveform_widget)
-        
-        # スプリッターの初期サイズ比率を設定（7:3）
-        self.main_splitter.setSizes([700, 300])
-        
-        main_layout.addWidget(self.main_splitter)
-        self.setCentralWidget(main_widget)
-        
-        self.resize(1025, 800)  # 高さを増やす
+        self.setCentralWidget(self.loaded_ui)
+        self.resize(1025, 597)
         self.setWindowTitle("Video Player App")
-        self.setGeometry(100, 100, 1280, 920)  # ウィンドウサイズを調整
+        self.setGeometry(100, 100, 1280, 720)
         
         # UIコンポーネントの取得
         self._get_ui_components()
@@ -129,19 +103,17 @@ class VideoPlayerApp(QMainWindow):
         # チャプターマネージャーの初期化
         self.chapter_manager = ChapterTableManager(self.table_view)
 
-        # ビデオウィジェットをクリック可能にする
+        # ビデオウィジェットをクリック可能にする（追加）
         self.video_widget.setFocusPolicy(Qt.ClickFocus)
         self.video_widget.mousePressEvent = lambda event: self.setFocus()
 
-    def _setup_audio_analyzer(self):
-        """音声解析器の設定"""
-        self.audio_analyzer = AudioAnalyzer()
-        self.waveform_widget.set_audio_analyzer(self.audio_analyzer)
 
     def focusInEvent(self, event):
         """フォーカスを受け取ったときの処理"""
         super().focusInEvent(event)
         print("Debug: VideoPlayerApp received focus.")
+    
+    # ↓ ここに追加 ↓
     
     def mousePressEvent(self, event):
         """マウスクリックイベントの処理"""
@@ -157,6 +129,7 @@ class VideoPlayerApp(QMainWindow):
         # 親クラスのイベント処理を呼び出す
         super().mousePressEvent(event)
 
+    
     def _get_ui_components(self):
         """UIコンポーネントの取得"""
         # ビデオ関連
@@ -205,26 +178,53 @@ class VideoPlayerApp(QMainWindow):
         menu_bar.setStyleSheet(StyleManager.get_menu_style())
         
         # フォント設定
-        # フォント設定（システムで利用可能なフォントを使用）
-        import platform
-        if platform.system() == "Darwin":  # macOS
-            font = QFont("Helvetica", 16)
-            font2 = QFont("Helvetica", 14)
-        elif platform.system() == "Windows":
-            font = QFont("Arial", 16)
-            font2 = QFont("Arial", 14)
-        else:  # Linux等
-            font = QFont("Sans", 16)
-            font2 = QFont("Sans", 14)
+        font = QFont("Noto Sans CJK JP", 16)
+        menu_bar.setFont(font)
+        
+        font2 = QFont("Noto Sans CJK JP", 14)
         
         # ファイルメニューの設定
         self._setup_file_menu(menu_bar, font2)
         
         # スキップメニューの設定
         self._setup_skip_menu(menu_bar, font2)
+    ''' 
+    def _setup_file_menu(self, menu_bar, font):
+        """ファイルメニューの設定"""
+        file_menu = menu_bar.addMenu("File")
+        file_menu.setFont(font)
         
-        # 音声デバイスメニューの設定
-        self._setup_audio_menu(menu_bar, font2)
+        actions = [
+            ("Open", "Ctrl+O", self.open_video),
+            ("Load", "Ctrl+L", self.load_chapter_file),
+            ("Save", "Ctrl+S", self.save_chapter_file),
+            ("Quit", None, self.quit_application),
+        ]
+        
+        for name, shortcut, callback in actions:
+            action = QAction(name, self)
+            if shortcut:
+                action.setShortcut(QKeySequence(shortcut))
+            action.triggered.connect(callback)
+            file_menu.addAction(action)
+    
+    def _setup_skip_menu(self, menu_bar, font):
+        """スキップメニューの設定"""
+        skip_menu = menu_bar.addMenu("Skip")
+        skip_menu.setFont(font)
+        
+        skip_actions = [
+            ("1min BW", "Ctrl+Left", self._rewind_1min),
+            ("1min FW", "Ctrl+Right", self._advance_1min),
+            ("Jump", "Ctrl+J", self.jump_to_time),
+        ]
+        
+        for name, shortcut, callback in skip_actions:
+            action = QAction(name, self)
+            action.setShortcut(QKeySequence(shortcut))
+            action.triggered.connect(callback)
+            skip_menu.addAction(action)
+    '''
 
     def _setup_file_menu(self, menu_bar, font):
         """ファイルメニューの設定"""
@@ -262,25 +262,6 @@ class VideoPlayerApp(QMainWindow):
             action.triggered.connect(callback)
             skip_menu.addAction(action)
     
-    def _setup_audio_menu(self, menu_bar, font):
-        """音声デバイスメニューの設定"""
-        self.audio_menu = menu_bar.addMenu("Audio")
-        self.audio_menu.setFont(font)
-        
-        # デバイスリストの更新アクション
-        refresh_action = QAction("Refresh Devices", self)
-        refresh_action.triggered.connect(self._refresh_audio_devices)
-        self.audio_menu.addAction(refresh_action)
-        
-        # セパレータ
-        self.audio_menu.addSeparator()
-        
-        # デバイスリストを初期化（最初は空）
-        self.audio_device_actions = []
-        
-        # 初回のデバイスリストを取得
-        self._refresh_audio_devices()
-    
     def _setup_status_bar(self):
         """ステータスバーの設定"""
         self.custom_status_label = QLabel()
@@ -296,12 +277,6 @@ class VideoPlayerApp(QMainWindow):
         self.media_player.setAudioOutput(self.audio_output)
         
         self.video_controller = VideoController(self.media_player)
-        
-        # 音声デバイス管理の初期化
-        self.audio_device_manager = AudioDeviceManager(self)
-        self.audio_device_manager.set_audio_output(self.audio_output)
-        self.audio_device_manager.device_changed.connect(self._on_audio_device_changed)
-        self.audio_device_manager.devices_updated.connect(self._on_devices_updated)
     
     def _setup_connections(self):
         """シグナル・スロットの接続"""
@@ -346,21 +321,7 @@ class VideoPlayerApp(QMainWindow):
         # ショートカット
         self.shortcut = QShortcut(QKeySequence("Ctrl+P"), self)
         self.shortcut.activated.connect(self.print_window_geometry)
-        
-        # 波形ウィジェットのシグナル接続
-        if self.waveform_widget:
-            self.waveform_widget.position_changed.connect(self._on_waveform_position_changed)
-            self.waveform_widget.region_changed.connect(self._on_waveform_region_changed)
 
-    def _on_waveform_position_changed(self, position: float):
-        """波形ウィジェットで再生位置が変更されたときの処理"""
-        # ミリ秒に変換して再生位置を設定
-        self.media_player.setPosition(int(position * 1000))
-
-    def _on_waveform_region_changed(self, start: float, end: float):
-        """波形ウィジェットでリージョンが変更されたときの処理"""
-        # 現在は特に処理なし（将来的にループ再生などの機能を追加可能）
-        pass
 
     def _apply_styles(self):
         """スタイルの適用"""
@@ -372,6 +333,7 @@ class VideoPlayerApp(QMainWindow):
         dark_mode = DarkModeDetector.is_dark_mode()
         button_style = StyleManager.get_button_style(dark_mode)
         self.setStyleSheet(button_style)
+
 
     def keyPressEvent(self, event):
         """キーボードイベントの処理"""
@@ -398,6 +360,7 @@ class VideoPlayerApp(QMainWindow):
         else:
             # その他のキーはデフォルトの処理に委ねる
             super().keyPressEvent(event)
+
 
     def show_shortcut_help(self):
         """ショートカットヘルプを表示（更新版）"""
@@ -433,8 +396,8 @@ class VideoPlayerApp(QMainWindow):
         Ctrl + P - ウィンドウ情報を表示<br>
         Shift + ? - このヘルプを表示<br>
         """
-        
-        QMessageBox.information(self, "ショートカットヘルプ", help_text)
+
+
 
     def toggle_play_pause(self):
         """再生と一時停止を切り替える"""
@@ -460,10 +423,6 @@ class VideoPlayerApp(QMainWindow):
         """再生位置の更新"""
         self.slider.setValue(position)
         self.update_time_label()
-        
-        # 波形ウィジェットの再生位置も更新
-        if self.waveform_widget:
-            self.waveform_widget.set_position(position / 1000.0)  # 秒に変換
     
     def update_duration(self, duration: int):
         """再生時間の更新"""
@@ -487,11 +446,18 @@ class VideoPlayerApp(QMainWindow):
         total_hours, total_remainder = divmod(total_time, 3600)
         total_minutes, total_seconds = divmod(total_remainder, 60)
 
+        # 小数点2桁の従来フォーマット（エラーが出ていた部分）
+        # self.custom_status_label.setText(
+        #     f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:05.2f} / "
+        #     f"{int(total_hours):01}:{int(total_minutes):02}:{total_seconds:05.2f}"
+        # )
+        
         # 小数点3桁の新フォーマット（copy_timeと統一）
         self.custom_status_label.setText(
             f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:06.3f} / "
             f"{int(total_hours):01}:{int(total_minutes):02}:{total_seconds:06.3f}"
         )
+
 
     def copy_time(self):
         """現在の再生位置をクリップボードにコピーする"""
@@ -502,11 +468,42 @@ class VideoPlayerApp(QMainWindow):
         current_minutes, current_seconds = divmod(current_remainder, 60)
 
         # フォーマットされた時間を作成
-        time_string = f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:06.3f}"
+        # 変更前: time_string = f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:05.2f}"
+        time_string = f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:06.3f}"  # ← この行を変更
 
         # クリップボードにコピー
         QApplication.clipboard().setText(time_string)
         print(f"Copied to clipboard: {time_string}")
+
+    def update_time_label(self):
+        """時間ラベルを更新する（修正版）"""
+        # エラーチェックを追加
+        if not hasattr(self, 'media_player') or not self.media_player:
+            return
+            
+        current_time = self.media_player.position() / 1000  # 現在の再生位置 (秒)
+        total_time = self.media_player.duration() / 1000   # 全体の再生時間 (秒)
+
+        # 現在の再生時間のフォーマット
+        current_hours, current_remainder = divmod(current_time, 3600)
+        current_minutes, current_seconds = divmod(current_remainder, 60)
+
+        # 全体の再生時間のフォーマット
+        total_hours, total_remainder = divmod(total_time, 3600)
+        total_minutes, total_seconds = divmod(total_remainder, 60)
+
+        # 小数点2桁の従来フォーマット（エラーが出ていた部分）
+        # self.custom_status_label.setText(
+        #     f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:05.2f} / "
+        #     f"{int(total_hours):01}:{int(total_minutes):02}:{total_seconds:05.2f}"
+        # )
+        
+        # 小数点3桁の新フォーマット（copy_timeと統一）
+        self.custom_status_label.setText(
+            f"{int(current_hours):01}:{int(current_minutes):02}:{current_seconds:06.3f} / "
+            f"{int(total_hours):01}:{int(total_minutes):02}:{total_seconds:06.3f}"
+        )
+        
     
     def add_chapter_row(self):
         """チャプター行を追加"""
@@ -640,25 +637,6 @@ class VideoPlayerApp(QMainWindow):
         if icon_path.exists():
             self.play_pause_button.setIcon(QIcon(str(icon_path)))
         self.file_name = file_path
-        
-        # 音声を抽出して波形を表示
-        self._load_audio_waveform(file_path)
-    
-    def _load_audio_waveform(self, file_path: str):
-        """音声を抽出して波形を表示"""
-        if self.audio_analyzer and self.waveform_widget:
-            # ステータスメッセージ（オプション）
-            print("Extracting audio from video...")
-            
-            # 音声を抽出
-            audio_data, sample_rate = self.audio_analyzer.extract_audio(file_path)
-            
-            if audio_data is not None:
-                # 波形ウィジェットに音声解析器を設定
-                self.waveform_widget.set_audio_analyzer(self.audio_analyzer)
-                print(f"Audio extracted: {len(audio_data)} samples at {sample_rate} Hz")
-            else:
-                print("Failed to extract audio from video")
     
     def _center_dialog(self, dialog: QFileDialog):
         """ダイアログを中央に配置"""
@@ -676,62 +654,6 @@ class VideoPlayerApp(QMainWindow):
     def _advance_1min(self):
         """1分早送り"""
         self.video_controller.seek_by_milliseconds(60000)
-    
-    def _refresh_audio_devices(self):
-        """音声デバイスリストを更新"""
-        if not self.audio_device_manager:
-            return
-        
-        # 既存のデバイスアクションをクリア
-        for action in self.audio_device_actions:
-            self.audio_menu.removeAction(action)
-        self.audio_device_actions.clear()
-        
-        # デバイスリストを取得
-        devices = self.audio_device_manager.get_devices_info()
-        current_device = self.audio_device_manager.get_current_device()
-        
-        # デバイスごとにメニューアイテムを作成
-        for i, device in enumerate(devices):
-            device_name = device['name']
-            if device['is_default']:
-                device_name += " (Default)"
-            
-            action = QAction(device_name, self)
-            action.setCheckable(True)
-            
-            # 現在選択されているデバイスにチェック
-            if current_device and device['id'] == current_device['id']:
-                action.setChecked(True)
-            
-            # デバイス切り替えのコールバック
-            action.triggered.connect(lambda checked, idx=i: self._switch_audio_device(idx))
-            
-            self.audio_menu.addAction(action)
-            self.audio_device_actions.append(action)
-        
-        if not devices:
-            no_device_action = QAction("No audio devices found", self)
-            no_device_action.setEnabled(False)
-            self.audio_menu.addAction(no_device_action)
-            self.audio_device_actions.append(no_device_action)
-    
-    def _switch_audio_device(self, device_index: int):
-        """音声デバイスを切り替え"""
-        if self.audio_device_manager:
-            success = self.audio_device_manager.switch_device_by_index(device_index)
-            if success:
-                # メニューのチェック状態を更新
-                for i, action in enumerate(self.audio_device_actions):
-                    action.setChecked(i == device_index)
-    
-    def _on_audio_device_changed(self, device_name: str):
-        """音声デバイスが変更されたときの処理"""
-        self.status_bar.showMessage(f"Audio output: {device_name}", 3000)
-    
-    def _on_devices_updated(self, devices: list):
-        """デバイスリストが更新されたときの処理"""
-        self._refresh_audio_devices()
     
     def showEvent(self, event):
         """ウィンドウが表示されるタイミングでの処理"""
