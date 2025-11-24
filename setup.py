@@ -11,10 +11,10 @@ long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="movie-viewer",
-    version="1.0.0",
+    version="1.0.1",
     author="mashi727",
     author_email="your.email@example.com",
-    description="A video player application with chapter management",
+    description="A media player application with chapter management and audio support",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mashi727/movie_viewer",

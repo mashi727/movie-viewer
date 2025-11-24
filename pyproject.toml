@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "movie-viewer"
-version = "1.0.0"
+version = "1.0.1"
 authors = [
     {name = "mashi727", email = "your.email@example.com"},
 ]
-description = "A video player application with chapter management"
+description = "A media player application with chapter management and audio support"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
