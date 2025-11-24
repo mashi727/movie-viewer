@@ -274,3 +274,19 @@ class WaveformWidget(QWidget):
     def set_region(self, start: float, end: float):
         """リージョンを設定"""
         self.region.setRegion([start, end])
+
+    def show_full_waveform(self):
+        """音声ファイル用に波形全体を表示"""
+        if self.audio_analyzer and self.duration > 0:
+            # リージョンを全体に設定
+            self.region.setRegion([0, self.duration])
+
+            # X軸の範囲を全体に設定
+            self.waveform_plot.setXRange(0, self.duration, padding=0.01)
+            self.spectrogram_plot.setXRange(0, self.duration, padding=0.01)
+
+            # リージョンを非表示にする（音声ファイルには不要）
+            self.region.setVisible(False)
+
+            # スペクトログラムを全体で更新
+            self._update_spectrogram(0, self.duration)

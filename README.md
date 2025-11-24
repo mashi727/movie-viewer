@@ -1,15 +1,18 @@
 # Movie Viewer
 
-A feature-rich video player application with chapter management capabilities built with PySide6.
+A feature-rich media player application with chapter management capabilities built with PySide6. Supports both video and audio files with waveform visualization.
 
 ## Features
 
-- Play various video formats (MP4, AVI, MKV, MOV, TS, M2TS, MP3)
-- Frame-by-frame navigation
+- Play various video formats (MP4, AVI, MKV, MOV, TS, M2TS, WebM, FLV, OGV, 3GP)
+- Play audio formats (MP3, M4A, AAC, WAV, FLAC, OGG, Opus, WMA, AIFF)
+- Audio waveform and spectrogram visualization
+- Frame-by-frame navigation for video
 - Chapter/bookmark management with time stamps
 - Dark/Light mode support (automatic OS detection)
 - Keyboard shortcuts for efficient navigation
 - Save and load chapter lists
+- Audio device selection and switching
 
 ## Installation
 
@@ -93,7 +96,11 @@ Chapter files are saved as `.txt` files with the same name as the video file. Fo
 - Python 3.8+
 - PySide6 6.5.0+
 - OpenCV-Python 4.8.0+
+- PyQtGraph 0.13.0+ (for waveform visualization)
+- NumPy 1.21.0+ (for audio processing)
+- SciPy 1.7.0+ (for spectrogram)
 - pyobjc-framework-Cocoa 9.0.0+ (macOS only, for dark mode detection)
+- ffmpeg/ffprobe (external dependency for audio extraction)
 
 ## Development
 

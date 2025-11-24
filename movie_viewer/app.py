@@ -29,6 +29,7 @@ from .core.audio_device_manager import AudioDeviceManager
 from .core.models import TimePosition
 from .utils.dark_mode import DarkModeDetector
 from .utils.style_manager import StyleManager
+from .utils.platform_utils import PlatformUtils
 
 
 class VideoPlayerApp(QMainWindow):
@@ -540,11 +541,15 @@ class VideoPlayerApp(QMainWindow):
     
     def open_video(self):
         """動画ファイルを開く"""
+        # 動画と音声の拡張子を取得
+        video_extensions = PlatformUtils.get_video_extensions()
+        extensions_str = ' '.join(video_extensions)
+
         dialog = QFileDialog(
-            self, 
-            "Open Video File", 
-            "", 
-            "Video Files (*.mp4 *.m4v *.avi *.mkv *.mov *.MOV *.ts *.m2ts *.mp3)"
+            self,
+            "Open Media File",
+            "",
+            f"Media Files ({extensions_str});;All Files (*)"
         )
         
         self._center_dialog(dialog)
@@ -615,24 +620,38 @@ class VideoPlayerApp(QMainWindow):
         print(f"Window Position: {position}, Size: {size}")
     
     def initialize_video(self, file_path: str):
-        """動画ファイルを初期化"""
+        """動画/音声ファイルを初期化"""
         if not os.path.exists(file_path):
             print(f"File not found: {file_path}")
             return
-        
+
         self.media_player.setSource(QUrl.fromLocalFile(file_path))
         self.play_pause_button.setEnabled(True)
-        
-        # フレームレートを設定
-        frame_rate = VideoController.get_frame_rate(file_path)
-        self.video_controller.set_frame_rate(frame_rate)
-        
+
+        # 音声ファイルかどうかを判定
+        is_audio = PlatformUtils.is_audio_file(file_path)
+
+        if not is_audio:
+            # 動画ファイルの場合のみフレームレートを設定
+            frame_rate = VideoController.get_frame_rate(file_path)
+            self.video_controller.set_frame_rate(frame_rate)
+
+            # ビデオウィジェットを表示
+            self.video_widget.setVisible(True)
+        else:
+            # 音声ファイルの場合
+            # ビデオウィジェットを非表示にして波形表示を大きくする
+            self.video_widget.setVisible(False)
+            # スプリッターのサイズ比率を調整（波形表示を大きくする）
+            self.main_splitter.setSizes([300, 700])
+
         # ファイル情報を表示
         file_name = os.path.basename(file_path)
+        file_type = "Audio" if is_audio else "Video"
         self.title_label.setStyleSheet("QLabel { font-size: 16px ;}")
-        self.title_label.setText(file_name)
-        
-        # 動画を再生
+        self.title_label.setText(f"[{file_type}] {file_name}")
+
+        # 再生を開始
         self.media_player.play()
         icon_path = self.resource_path / "icons" / "pause.png"
         if not icon_path.exists():
@@ -640,25 +659,33 @@ class VideoPlayerApp(QMainWindow):
         if icon_path.exists():
             self.play_pause_button.setIcon(QIcon(str(icon_path)))
         self.file_name = file_path
-        
-        # 音声を抽出して波形を表示
+
+        # 音声を抽出/読み込みして波形を表示
         self._load_audio_waveform(file_path)
     
     def _load_audio_waveform(self, file_path: str):
         """音声を抽出して波形を表示"""
         if self.audio_analyzer and self.waveform_widget:
-            # ステータスメッセージ（オプション）
-            print("Extracting audio from video...")
-            
+            # ファイルタイプによってメッセージを変更
+            is_audio = PlatformUtils.is_audio_file(file_path)
+            if is_audio:
+                print("Loading audio file...")
+            else:
+                print("Extracting audio from video...")
+
             # 音声を抽出
             audio_data, sample_rate = self.audio_analyzer.extract_audio(file_path)
-            
+
             if audio_data is not None:
                 # 波形ウィジェットに音声解析器を設定
                 self.waveform_widget.set_audio_analyzer(self.audio_analyzer)
-                print(f"Audio extracted: {len(audio_data)} samples at {sample_rate} Hz")
+                print(f"Audio loaded: {len(audio_data)} samples at {sample_rate} Hz")
+
+                # 音声ファイルの場合は波形全体を表示
+                if is_audio:
+                    self.waveform_widget.show_full_waveform()
             else:
-                print("Failed to extract audio from video")
+                print(f"Failed to load audio from {'file' if is_audio else 'video'}")
     
     def _center_dialog(self, dialog: QFileDialog):
         """ダイアログを中央に配置"""

@@ -155,9 +155,9 @@ class PlatformUtils:
     def get_video_extensions() -> List[str]:
         """
         サポートする動画ファイル拡張子のリストを取得
-        
+
         プラットフォームによってサポートされる形式が異なる場合があります。
-        
+
         Returns:
             拡張子のリスト（ワイルドカード形式）
         """
@@ -165,24 +165,64 @@ class PlatformUtils:
         extensions = [
             '*.mp4', '*.m4v', '*.avi', '*.mkv', '*.mov',
             '*.ts', '*.m2ts', '*.mp3', '*.webm', '*.flv',
-            '*.ogv', '*.3gp'
+            '*.ogv', '*.3gp', '*.m4a', '*.aac', '*.wav', '*.flac'
         ]
-        
+
         system = PlatformUtils.get_platform()
-        
+
         # プラットフォーム固有の拡張子を追加
         if system == 'windows':
-            extensions.extend(['*.wmv', '*.asf'])
+            extensions.extend(['*.wmv', '*.asf', '*.wma'])
         elif system == 'macos':
-            extensions.extend(['*.m4v'])  # QuickTime固有
-        
+            extensions.extend(['*.m4v', '*.aiff'])  # QuickTime固有
+
         # Windowsは大文字小文字を区別しないが、他のOSでは区別する
         if system != 'windows':
             # 大文字バージョンも追加
             upper_extensions = [ext.upper() for ext in extensions]
             extensions.extend(upper_extensions)
-        
+
         return extensions
+
+    @staticmethod
+    def get_audio_extensions() -> List[str]:
+        """
+        サポートする音声ファイル拡張子のリストを取得
+
+        Returns:
+            音声拡張子のリスト（ワイルドカード形式）
+        """
+        extensions = [
+            '*.mp3', '*.m4a', '*.aac', '*.wav', '*.flac',
+            '*.ogg', '*.opus', '*.wma', '*.aiff', '*.alac'
+        ]
+
+        system = PlatformUtils.get_platform()
+
+        # Windowsは大文字小文字を区別しないが、他のOSでは区別する
+        if system != 'windows':
+            # 大文字バージョンも追加
+            upper_extensions = [ext.upper() for ext in extensions]
+            extensions.extend(upper_extensions)
+
+        return extensions
+
+    @staticmethod
+    def is_audio_file(file_path: str) -> bool:
+        """
+        指定されたファイルが音声ファイルかどうかを判定
+
+        Args:
+            file_path: チェックするファイルパス
+
+        Returns:
+            音声ファイルの場合True
+        """
+        audio_extensions = {'.mp3', '.m4a', '.aac', '.wav', '.flac',
+                          '.ogg', '.opus', '.wma', '.aiff', '.alac'}
+
+        path = Path(file_path)
+        return path.suffix.lower() in audio_extensions
     
     @staticmethod
     def fix_high_dpi_scaling():
